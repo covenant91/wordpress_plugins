@@ -18,7 +18,10 @@ class Test_WSP_Publisher extends WP_UnitTestCase {
 		$post_id = self::factory()->post->create( array( 'post_status' => 'draft' ) );
 		update_post_meta( $post_id, '_wsp_channels', array( 'facebook' ) );
 
-		do_action( 'transition_post_status', 'publish', 'draft', get_post( $post_id ) );
+		$post        = get_post( $post_id );
+		$post_before = clone $post;
+		$post_before->post_status = 'draft';
+		do_action( 'wp_after_insert_post', $post_id, $post, true, $post_before );
 
 		$crons = _get_cron_array();
 		$found = false;
@@ -38,9 +41,11 @@ class Test_WSP_Publisher extends WP_UnitTestCase {
 		$post_id = self::factory()->post->create( array( 'post_status' => 'draft' ) );
 		update_post_meta( $post_id, '_wsp_channels', array( 'facebook' ) );
 
-		// Simulate autosave by adding the autosave filter.
+		$post        = get_post( $post_id );
+		$post_before = clone $post;
+		$post_before->post_status = 'draft';
 		add_filter( 'wp_is_post_autosave', '__return_true' );
-		do_action( 'transition_post_status', 'publish', 'draft', get_post( $post_id ) );
+		do_action( 'wp_after_insert_post', $post_id, $post, true, $post_before );
 		remove_filter( 'wp_is_post_autosave', '__return_true' );
 
 		// No log entries at all (cleaner check since table starts empty per test).
@@ -53,7 +58,10 @@ class Test_WSP_Publisher extends WP_UnitTestCase {
 		$revision_id = wp_save_post_revision( $parent_id );
 		update_post_meta( $revision_id, '_wsp_channels', array( 'facebook' ) );
 
-		do_action( 'transition_post_status', 'publish', 'draft', get_post( $revision_id ) );
+		$rev         = get_post( $revision_id );
+		$rev_before  = clone $rev;
+		$rev_before->post_status = 'draft';
+		do_action( 'wp_after_insert_post', $revision_id, $rev, true, $rev_before );
 
 		$log_count = WSP_Post_Log::count_logs( array() );
 		$this->assertSame( 0, $log_count, 'No log entry should be created for revisions' );
@@ -63,7 +71,10 @@ class Test_WSP_Publisher extends WP_UnitTestCase {
 		$post_id = self::factory()->post->create( array( 'post_status' => 'draft' ) );
 		update_post_meta( $post_id, '_wsp_channels', array( 'facebook', 'linkedin' ) );
 
-		do_action( 'transition_post_status', 'publish', 'draft', get_post( $post_id ) );
+		$post        = get_post( $post_id );
+		$post_before = clone $post;
+		$post_before->post_status = 'draft';
+		do_action( 'wp_after_insert_post', $post_id, $post, true, $post_before );
 
 		$fb_logged  = WSP_Post_Log::count_logs( array( 'platform' => 'facebook' ) );
 		$li_logged  = WSP_Post_Log::count_logs( array( 'platform' => 'linkedin' ) );
@@ -78,7 +89,10 @@ class Test_WSP_Publisher extends WP_UnitTestCase {
 		$post_id = self::factory()->post->create( array( 'post_status' => 'draft' ) );
 		update_post_meta( $post_id, '_wsp_channels', array( 'twitter' ) );
 
-		do_action( 'transition_post_status', 'publish', 'draft', get_post( $post_id ) );
+		$post        = get_post( $post_id );
+		$post_before = clone $post;
+		$post_before->post_status = 'draft';
+		do_action( 'wp_after_insert_post', $post_id, $post, true, $post_before );
 
 		$scheduled = wp_next_scheduled( 'wsp_publish_twitter', array( $post_id ) );
 		$this->assertNotFalse( $scheduled, 'wsp_publish_twitter should be scheduled with correct post ID arg' );
@@ -93,8 +107,10 @@ class Test_WSP_Publisher extends WP_UnitTestCase {
 		global $wpdb;
 		$wpdb->update( $wpdb->prefix . 'wsp_post_log', array( 'status' => 'sent' ), array( 'post_id' => $post_id ) );
 
-		// Try to re-publish.
-		do_action( 'transition_post_status', 'publish', 'draft', get_post( $post_id ) );
+		// Try to re-publish — old_status is already 'publish' so it should be skipped.
+		$post        = get_post( $post_id );
+		$post_before = clone $post; // both publish
+		do_action( 'wp_after_insert_post', $post_id, $post, true, $post_before );
 
 		$count = WSP_Post_Log::count_logs( array( 'platform' => 'facebook' ) );
 		$this->assertSame( 1, $count, 'Should not create a duplicate log entry on re-publish' );

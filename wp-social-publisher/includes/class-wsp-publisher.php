@@ -16,7 +16,9 @@ class WSP_Publisher {
 	}
 
 	private function register_hooks() {
-		$this->loader->add_action( 'transition_post_status', $this, 'maybe_schedule_publish', 10, 3 );
+		// wp_after_insert_post fires after ALL meta is saved (works for both
+		// classic editor and Gutenberg REST API, which saves meta after status).
+		$this->loader->add_action( 'wp_after_insert_post', $this, 'maybe_schedule_publish', 10, 4 );
 
 		// Register per-platform cron handlers. Post ID is passed as a cron argument.
 		foreach ( $this->platforms as $platform ) {
@@ -28,19 +30,21 @@ class WSP_Publisher {
 	}
 
 	/**
-	 * Fired on every post status transition. Schedules async publish only when appropriate.
+	 * Fires after a post and all its meta are fully saved.
+	 * Handles both Classic Editor and Gutenberg (REST API saves meta after status change).
 	 *
-	 * @param string  $new_status
-	 * @param string  $old_status
-	 * @param WP_Post $post
+	 * @param int          $post_id
+	 * @param WP_Post      $post
+	 * @param bool         $update
+	 * @param WP_Post|null $post_before  Post state before this save.
 	 */
-	public function maybe_schedule_publish( $new_status, $old_status, $post ) {
-		// Only act on transitions TO 'publish'.
-		if ( 'publish' !== $new_status ) {
+	public function maybe_schedule_publish( $post_id, $post, $update, $post_before ) {
+		// Only act when the new status is 'publish'.
+		if ( 'publish' !== $post->post_status ) {
 			return;
 		}
-		// Skip re-publishing already-published posts.
-		if ( 'publish' === $old_status ) {
+		// Skip if the post was already published before this save.
+		if ( $post_before && 'publish' === $post_before->post_status ) {
 			return;
 		}
 		if ( wp_is_post_autosave( $post ) || wp_is_post_revision( $post ) ) {
