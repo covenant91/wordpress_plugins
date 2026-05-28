@@ -29,12 +29,27 @@
 	});
 
 	// Track whether the settings form has unsaved changes.
+	// Delay listening to avoid catching browser autofill events on page load.
 	var formDirty = false;
-	$(document).on('input change', '.wsp-field-track', function () {
-		formDirty = true;
+	var initialValues = {};
+
+	// Snapshot field values after page fully settles (avoids autofill false positives).
+	setTimeout(function () {
+		$('.wsp-field-track').each(function () {
+			initialValues[this.name] = this.value;
+		});
+		// Only mark dirty if user actually changes a value from the snapshot.
+		$(document).on('input', '.wsp-field-track', function () {
+			if (this.value !== (initialValues[this.name] || '')) {
+				formDirty = true;
+			}
+		});
+	}, 800);
+
+	$('form').on('submit', function () {
+		formDirty = false;
 		$('.wsp-unsaved-warning').remove();
 	});
-	$('form').on('submit', function () { formDirty = false; });
 
 	// Test Connection buttons.
 	$(document).on('click', '.smp-test-connection', function (e) {

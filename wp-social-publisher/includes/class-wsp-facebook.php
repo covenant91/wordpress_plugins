@@ -122,11 +122,15 @@ class WSP_Facebook {
 		$response = wp_remote_get( $url, array( 'timeout' => 10 ) );
 
 		if ( is_wp_error( $response ) ) {
+			error_log( '[WSP Facebook] test_connection WP_Error: ' . $response->get_error_message() );
 			return array( 'success' => false, 'message' => $response->get_error_message() );
 		}
 
 		$code = wp_remote_retrieve_response_code( $response );
-		$data = json_decode( wp_remote_retrieve_body( $response ), true );
+		$body = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body, true );
+
+		error_log( '[WSP Facebook] test_connection HTTP ' . $code . ' — ' . $body );
 
 		if ( 200 !== (int) $code ) {
 			$msg = isset( $data['error']['message'] ) ? $data['error']['message'] : "HTTP {$code}";
