@@ -11,7 +11,7 @@ $tabs = array(
 
 $settings = get_option( 'wsp_settings', array() );
 
-// Handle form save.
+// Handle form save (only for tabs that still have manual fields).
 if ( isset( $_POST['wsp_save_settings'] ) ) {
 	check_admin_referer( 'wsp_settings_save', 'wsp_settings_nonce' );
 	if ( ! current_user_can( 'manage_options' ) ) {
@@ -21,17 +21,11 @@ if ( isset( $_POST['wsp_save_settings'] ) ) {
 	$token_mgr = new WSP_Token_Manager();
 
 	if ( 'facebook' === $active_tab ) {
-		$settings['facebook']['app_id']  = sanitize_text_field( wp_unslash( $_POST['wsp_fb_app_id'] ?? '' ) );
-		$settings['facebook']['page_id'] = sanitize_text_field( wp_unslash( $_POST['wsp_fb_page_id'] ?? '' ) );
-		$settings['instagram']['user_id'] = sanitize_text_field( wp_unslash( $_POST['wsp_ig_user_id'] ?? '' ) );
-		// Only overwrite encrypted secrets if a new value was submitted.
+		// App ID and Secret only — page token/ID are written by the OAuth flow.
+		$settings['facebook']['app_id'] = sanitize_text_field( wp_unslash( $_POST['wsp_fb_app_id'] ?? '' ) );
 		$fb_secret = sanitize_text_field( wp_unslash( $_POST['wsp_fb_app_secret'] ?? '' ) );
 		if ( $fb_secret ) {
 			$settings['facebook']['app_secret'] = $token_mgr->encrypt( $fb_secret );
-		}
-		$fb_token = sanitize_text_field( wp_unslash( $_POST['wsp_fb_page_token'] ?? '' ) );
-		if ( $fb_token ) {
-			$settings['facebook']['page_token'] = $token_mgr->encrypt( $fb_token );
 		}
 	}
 
@@ -51,15 +45,11 @@ if ( isset( $_POST['wsp_save_settings'] ) ) {
 	}
 
 	if ( 'twitter' === $active_tab ) {
-		$settings['twitter']['consumer_key']  = sanitize_text_field( wp_unslash( $_POST['wsp_tw_consumer_key'] ?? '' ) );
-		$settings['twitter']['access_token']  = sanitize_text_field( wp_unslash( $_POST['wsp_tw_access_token'] ?? '' ) );
+		// Consumer Key and Secret only — access tokens are written by the OAuth flow.
+		$settings['twitter']['consumer_key'] = sanitize_text_field( wp_unslash( $_POST['wsp_tw_consumer_key'] ?? '' ) );
 		$tw_secret = sanitize_text_field( wp_unslash( $_POST['wsp_tw_consumer_secret'] ?? '' ) );
 		if ( $tw_secret ) {
 			$settings['twitter']['consumer_secret'] = $token_mgr->encrypt( $tw_secret );
-		}
-		$tw_at_secret = sanitize_text_field( wp_unslash( $_POST['wsp_tw_access_token_secret'] ?? '' ) );
-		if ( $tw_at_secret ) {
-			$settings['twitter']['access_token_secret'] = $token_mgr->encrypt( $tw_at_secret );
 		}
 	}
 
@@ -159,10 +149,12 @@ $token_mgr = new WSP_Token_Manager();
 				<?php endforeach; ?>
 			</table>
 			<?php endif; ?>
+			<?php if ( in_array( $active_tab, array( 'facebook', 'twitter', 'linkedin', 'defaults' ), true ) ) : ?>
 			<p class="submit">
 				<input type="submit" name="wsp_save_settings" class="button-primary"
 					value="<?php esc_attr_e( 'Save Settings', 'wp-social-publisher' ); ?>" />
 			</p>
+			<?php endif; ?>
 		</form>
 	</div>
 </div>

@@ -1,63 +1,120 @@
-<?php defined( 'ABSPATH' ) || die();
+<?php
+defined( 'ABSPATH' ) || die();
+
+$settings        = get_option( 'wsp_settings', array() );
+$is_connected    = ! empty( $settings['facebook']['connected'] );
+$connected_name  = $settings['facebook']['connected_name'] ?? '';
+$ig_connected    = ! empty( $settings['instagram']['connected'] );
+$token_mgr       = new WSP_Token_Manager();
 $has_app_secret  = ! empty( $settings['facebook']['app_secret'] );
-$has_page_token  = ! empty( $settings['facebook']['page_token'] );
+$oauth_fb        = new WSP_OAuth_Facebook();
+
+// Show OAuth result notices.
+if ( isset( $_GET['oauth_success'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+	echo '<div class="notice notice-success is-dismissible"><p>'
+		. esc_html__( 'Facebook connected successfully!', 'wp-social-publisher' )
+		. '</p></div>';
+}
+if ( isset( $_GET['oauth_disconnected'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+	echo '<div class="notice notice-info is-dismissible"><p>'
+		. esc_html__( 'Facebook disconnected.', 'wp-social-publisher' )
+		. '</p></div>';
+}
+if ( isset( $_GET['oauth_error'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+	echo '<div class="notice notice-error is-dismissible"><p>'
+		. esc_html( urldecode( sanitize_text_field( wp_unslash( $_GET['oauth_error'] ) ) ) )
+		. '</p></div>';
+}
+
+// Page selector step.
+if ( isset( $_GET['oauth_step'] ) && 'select_page' === $_GET['oauth_step'] ) { // phpcs:ignore WordPress.Security.NonceVerification
+	echo ( new WSP_OAuth_Facebook() )->render_page_selector();
+	return;
+}
 ?>
-<div class="notice notice-info inline" style="margin:0 0 16px;padding:8px 12px">
-	<p style="margin:0">
-		<strong><?php esc_html_e( 'Important:', 'wp-social-publisher' ); ?></strong>
-		<?php esc_html_e( 'Click "Save Settings" before using "Test Connection".', 'wp-social-publisher' ); ?>
-	</p>
+
+<?php if ( $is_connected ) : ?>
+<div class="wsp-connected-banner">
+	<span class="wsp-connected-dot"></span>
+	<strong><?php esc_html_e( 'Facebook connected as:', 'wp-social-publisher' ); ?></strong>
+	<?php echo esc_html( $connected_name ); ?>
+	<?php if ( ! empty( $settings['facebook']['token_expiry'] ) ) : ?>
+		<span class="wsp-expiry-note">
+			— <?php printf( esc_html__( 'token expires %s', 'wp-social-publisher' ), esc_html( $settings['facebook']['token_expiry'] ) ); ?>
+		</span>
+	<?php endif; ?>
+	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;margin-left:16px">
+		<?php wp_nonce_field( 'wsp_oauth_facebook_disconnect' ); ?>
+		<input type="hidden" name="action" value="wsp_oauth_facebook_disconnect" />
+		<button type="submit" class="button button-small wsp-disconnect-btn">
+			<?php esc_html_e( 'Disconnect', 'wp-social-publisher' ); ?>
+		</button>
+	</form>
 </div>
+
+<?php if ( $ig_connected ) : ?>
+<div class="wsp-connected-banner" style="margin-top:8px">
+	<span class="wsp-connected-dot" style="background:#E1306C"></span>
+	<strong><?php esc_html_e( 'Instagram connected to page:', 'wp-social-publisher' ); ?></strong>
+	<?php echo esc_html( $settings['instagram']['connected_name'] ?? $connected_name ); ?>
+	<span style="color:#787c82;font-size:12px;margin-left:8px">
+		(<?php esc_html_e( 'ID:', 'wp-social-publisher' ); ?> <?php echo esc_html( $settings['instagram']['user_id'] ?? '' ); ?>)
+	</span>
+</div>
+<?php else : ?>
+<div class="notice notice-warning inline" style="margin-top:8px;padding:8px 12px">
+	<p style="margin:0"><?php esc_html_e( 'Instagram not detected. Make sure your Instagram Business/Creator account is linked to this Facebook Page in Meta Business Settings.', 'wp-social-publisher' ); ?></p>
+</div>
+<?php endif; ?>
+
+<hr style="margin:20px 0" />
+<p style="color:#50575e"><?php esc_html_e( 'To switch pages or reconnect after token expiry, click "Disconnect" then connect again.', 'wp-social-publisher' ); ?></p>
+
+<?php else : ?>
+
 <table class="form-table">
 	<tr>
 		<th><label for="wsp_fb_app_id"><?php esc_html_e( 'Facebook App ID', 'wp-social-publisher' ); ?></label></th>
 		<td>
 			<input type="text" id="wsp_fb_app_id" name="wsp_fb_app_id" class="regular-text"
 				value="<?php echo esc_attr( $settings['facebook']['app_id'] ?? '' ); ?>" />
+			<p class="description"><?php esc_html_e( 'From your Meta Developer app → Settings → Basic.', 'wp-social-publisher' ); ?></p>
 		</td>
 	</tr>
 	<tr>
 		<th><label for="wsp_fb_app_secret"><?php esc_html_e( 'Facebook App Secret', 'wp-social-publisher' ); ?></label></th>
 		<td>
-			<input type="password" id="wsp_fb_app_secret" name="wsp_fb_app_secret" class="regular-text wsp-field-track"
+			<input type="password" id="wsp_fb_app_secret" name="wsp_fb_app_secret" class="regular-text"
 				placeholder="<?php esc_attr_e( 'Leave blank to keep existing', 'wp-social-publisher' ); ?>" />
-			<?php if ( $has_app_secret ) : ?><span class="wsp-saved-badge">&#10003; <?php esc_html_e( 'Saved', 'wp-social-publisher' ); ?></span><?php endif; ?>
-		</td>
-	</tr>
-	<tr>
-		<th><label for="wsp_fb_page_token"><?php esc_html_e( 'Page Access Token', 'wp-social-publisher' ); ?></label></th>
-		<td>
-			<input type="password" id="wsp_fb_page_token" name="wsp_fb_page_token" class="regular-text wsp-field-track"
-				placeholder="<?php esc_attr_e( 'Leave blank to keep existing', 'wp-social-publisher' ); ?>" />
-			<?php if ( $has_page_token ) : ?><span class="wsp-saved-badge">&#10003; <?php esc_html_e( 'Saved', 'wp-social-publisher' ); ?></span><?php endif; ?>
-		</td>
-	</tr>
-	<tr>
-		<th><label for="wsp_fb_page_id"><?php esc_html_e( 'Facebook Page ID', 'wp-social-publisher' ); ?></label></th>
-		<td>
-			<input type="text" id="wsp_fb_page_id" name="wsp_fb_page_id" class="regular-text"
-				value="<?php echo esc_attr( $settings['facebook']['page_id'] ?? '' ); ?>" />
-			<button type="button" class="button smp-test-connection" data-platform="facebook">
-				<?php esc_html_e( 'Test Connection', 'wp-social-publisher' ); ?>
-			</button>
-			<span class="smp-test-result"></span>
-		</td>
-	</tr>
-	<tr>
-		<th colspan="2"><h3 style="margin:0"><?php esc_html_e( 'Instagram', 'wp-social-publisher' ); ?></h3></th>
-	</tr>
-	<tr>
-		<th><label for="wsp_ig_user_id"><?php esc_html_e( 'Instagram User ID', 'wp-social-publisher' ); ?></label></th>
-		<td>
-			<input type="text" id="wsp_ig_user_id" name="wsp_ig_user_id" class="regular-text"
-				value="<?php echo esc_attr( $settings['instagram']['user_id'] ?? '' ); ?>" />
-			<button type="button" class="button smp-test-connection" data-platform="instagram">
-				<?php esc_html_e( 'Test Connection', 'wp-social-publisher' ); ?>
-			</button>
-			<span class="smp-test-result"></span>
-			<p class="description">
-				<?php esc_html_e( 'Instagram uses the same Page Access Token as Facebook. The account must be Business or Creator type and linked to your Facebook Page.', 'wp-social-publisher' ); ?>
-			</p>
+			<?php if ( $has_app_secret ) : ?>
+				<span class="wsp-saved-badge">&#10003; <?php esc_html_e( 'Saved', 'wp-social-publisher' ); ?></span>
+			<?php endif; ?>
+			<p class="description"><?php esc_html_e( 'Required to initiate the OAuth flow.', 'wp-social-publisher' ); ?></p>
 		</td>
 	</tr>
 </table>
+
+<div style="margin:16px 0">
+	<p><?php esc_html_e( 'After saving App ID and Secret above, click the button to authorize via Facebook login:', 'wp-social-publisher' ); ?></p>
+	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+		<?php wp_nonce_field( 'wsp_oauth_facebook_init' ); ?>
+		<input type="hidden" name="action" value="wsp_oauth_facebook_init" />
+		<button type="submit" class="button button-primary wsp-connect-btn wsp-connect-facebook">
+			&#x1F4F7; <?php esc_html_e( 'Connect with Facebook', 'wp-social-publisher' ); ?>
+		</button>
+	</form>
+	<p class="description" style="margin-top:8px">
+		<?php
+		printf(
+			wp_kses(
+				/* translators: %s callback URL */
+				__( 'Make sure <code>%s</code> is added as a Valid OAuth Redirect URI in your Meta app → Facebook Login for Business → Settings.', 'wp-social-publisher' ),
+				array( 'code' => array() )
+			),
+			esc_html( admin_url( 'admin-post.php?action=wsp_oauth_facebook_callback' ) )
+		);
+		?>
+	</p>
+</div>
+
+<?php endif; ?>

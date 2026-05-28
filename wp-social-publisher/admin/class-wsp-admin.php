@@ -16,8 +16,54 @@ class WSP_Admin {
 		$this->loader->add_action( 'admin_menu',            $this, 'add_menus' );
 		$this->loader->add_action( 'admin_enqueue_scripts', $this, 'enqueue_assets' );
 		$this->loader->add_action( 'admin_notices',         $this, 'admin_notices' );
+
+		// AJAX handlers.
 		$this->loader->add_action( 'wp_ajax_wsp_test_connection', $this, 'ajax_test_connection' );
 		$this->loader->add_action( 'wp_ajax_wsp_retry_publish',   $this, 'ajax_retry_publish' );
+
+		// Facebook OAuth actions.
+		$this->loader->add_action( 'admin_post_wsp_oauth_facebook_init',        $this, 'oauth_facebook_init' );
+		$this->loader->add_action( 'admin_post_wsp_oauth_facebook_callback',    $this, 'oauth_facebook_callback' );
+		$this->loader->add_action( 'admin_post_wsp_oauth_facebook_select_page', $this, 'oauth_facebook_select_page' );
+		$this->loader->add_action( 'admin_post_wsp_oauth_facebook_disconnect',  $this, 'oauth_facebook_disconnect' );
+
+		// Twitter OAuth actions.
+		$this->loader->add_action( 'admin_post_wsp_oauth_twitter_init',       $this, 'oauth_twitter_init' );
+		$this->loader->add_action( 'admin_post_wsp_oauth_twitter_callback',   $this, 'oauth_twitter_callback' );
+		$this->loader->add_action( 'admin_post_wsp_oauth_twitter_disconnect', $this, 'oauth_twitter_disconnect' );
+	}
+
+	// -------------------------------------------------------------------------
+	// Facebook OAuth delegates
+	// -------------------------------------------------------------------------
+
+	public function oauth_facebook_init()        { ( new WSP_OAuth_Facebook() )->init_oauth(); }
+	public function oauth_facebook_callback()    { ( new WSP_OAuth_Facebook() )->handle_callback(); }
+	public function oauth_facebook_select_page() { ( new WSP_OAuth_Facebook() )->handle_page_selection(); }
+
+	public function oauth_facebook_disconnect() {
+		check_admin_referer( 'wsp_oauth_facebook_disconnect' );
+		if ( current_user_can( 'manage_options' ) ) {
+			( new WSP_OAuth_Facebook() )->disconnect();
+		}
+		wp_redirect( admin_url( 'admin.php?page=wp-social-publisher&tab=facebook&oauth_disconnected=1' ) );
+		exit;
+	}
+
+	// -------------------------------------------------------------------------
+	// Twitter OAuth delegates
+	// -------------------------------------------------------------------------
+
+	public function oauth_twitter_init()     { ( new WSP_OAuth_Twitter() )->init_oauth(); }
+	public function oauth_twitter_callback() { ( new WSP_OAuth_Twitter() )->handle_callback(); }
+
+	public function oauth_twitter_disconnect() {
+		check_admin_referer( 'wsp_oauth_twitter_disconnect' );
+		if ( current_user_can( 'manage_options' ) ) {
+			( new WSP_OAuth_Twitter() )->disconnect();
+		}
+		wp_redirect( admin_url( 'admin.php?page=wp-social-publisher&tab=twitter&oauth_disconnected=1' ) );
+		exit;
 	}
 
 	public function add_menus() {
