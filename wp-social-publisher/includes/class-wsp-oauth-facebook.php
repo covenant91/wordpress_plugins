@@ -12,7 +12,7 @@ class WSP_OAuth_Facebook {
 
 	const API_BASE  = 'https://graph.facebook.com/v18.0';
 	const AUTH_URL  = 'https://www.facebook.com/v18.0/dialog/oauth';
-	const SCOPE     = 'pages_manage_posts,pages_read_engagement,pages_show_list,instagram_basic,instagram_content_publish';
+	const SCOPE     = 'pages_manage_posts,pages_read_engagement,pages_show_list';
 
 	/**
 	 * The WordPress callback URL registered in the Facebook app.
