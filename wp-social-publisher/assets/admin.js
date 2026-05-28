@@ -28,38 +28,8 @@
 		}
 	});
 
-	// Track whether the settings form has unsaved changes.
-	// Delay listening to avoid catching browser autofill events on page load.
-	var formDirty = false;
-	var initialValues = {};
-
-	// Snapshot field values after page fully settles (avoids autofill false positives).
-	setTimeout(function () {
-		$('.wsp-field-track').each(function () {
-			initialValues[this.name] = this.value;
-		});
-		// Only mark dirty if user actually changes a value from the snapshot.
-		$(document).on('input', '.wsp-field-track', function () {
-			if (this.value !== (initialValues[this.name] || '')) {
-				formDirty = true;
-			}
-		});
-	}, 800);
-
-	$('form').on('submit', function () {
-		formDirty = false;
-		$('.wsp-unsaved-warning').remove();
-	});
-
 	// Test Connection buttons.
 	$(document).on('click', '.smp-test-connection', function (e) {
-		if (formDirty) {
-			var $btn = $(this);
-			if (!$btn.siblings('.wsp-unsaved-warning').length) {
-				$btn.after('<span class="wsp-unsaved-warning">&#9888; Save settings first</span>');
-			}
-			return;
-		}
 		e.preventDefault();
 		var $btn      = $(this);
 		var platform  = $btn.data('platform');
