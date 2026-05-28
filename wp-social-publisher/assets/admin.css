@@ -1,0 +1,143 @@
+/* WP Social Publisher — Admin styles */
+
+/* Platform dot colour indicator */
+.smp-platform-dot {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	margin-right: 5px;
+	vertical-align: middle;
+}
+
+/* Meta box rows */
+.smp-platform-row {
+	margin-bottom: 10px;
+}
+.smp-platform-label {
+	font-weight: 600;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+.smp-caption-wrap {
+	margin-top: 6px;
+	padding-left: 16px;
+}
+.smp-caption {
+	width: 100%;
+	resize: vertical;
+}
+.smp-char-count {
+	font-size: 11px;
+	color: #666;
+	display: block;
+	text-align: right;
+}
+.smp-char-count.smp-over-limit {
+	color: #d63638;
+	font-weight: 600;
+}
+.smp-already-sent {
+	background: #e7f5fb;
+	border-left: 4px solid #0a89c0;
+	padding: 6px 10px;
+	margin-bottom: 8px;
+	font-size: 12px;
+}
+
+/* Settings page tabs */
+.wsp-tab-nav {
+	margin: 0 0 20px;
+	padding: 0;
+	border-bottom: 1px solid #c3c4c7;
+	list-style: none;
+	display: flex;
+	gap: 0;
+}
+.wsp-tab-nav li {
+	margin: 0;
+}
+.wsp-tab-nav a {
+	display: block;
+	padding: 8px 16px;
+	text-decoration: none;
+	border: 1px solid transparent;
+	border-bottom: none;
+	margin-bottom: -1px;
+	color: #50575e;
+	background: #f0f0f1;
+}
+.wsp-tab-nav a.active,
+.wsp-tab-nav a:hover {
+	background: #fff;
+	border-color: #c3c4c7;
+	color: #1d2327;
+}
+.wsp-settings-section {
+	background: #fff;
+	padding: 20px;
+	border: 1px solid #c3c4c7;
+	border-top: none;
+}
+
+/* Test connection button */
+.smp-test-connection {
+	margin-left: 8px;
+}
+.smp-test-result {
+	display: inline-block;
+	margin-left: 8px;
+	font-size: 13px;
+}
+.smp-test-result.smp-ok   { color: #00a32a; }
+.smp-test-result.smp-fail { color: #d63638; }
+
+/* Activity log — status badges */
+.smp-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 3px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	color: #fff;
+}
+.smp-badge-sent    { background: #00a32a; }
+.smp-badge-failed  { background: #d63638; }
+.smp-badge-skipped { background: #dba617; }
+.smp-badge-pending { background: #787c82; }
+
+/* Platform badges */
+.smp-badge-facebook  { background: #1877F2; }
+.smp-badge-instagram { background: #E1306C; }
+.smp-badge-linkedin  { background: #0A66C2; }
+.smp-badge-twitter   { background: #000; }
+
+/* Log table caption column tooltip */
+.smp-caption-cell {
+	max-width: 250px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Gutenberg sidebar */
+.smp-already-sent-notice {
+	margin: 4px 0;
+	padding: 8px;
+}
+
+/* Twitter monthly count widget */
+.wsp-twitter-count {
+	background: #f0f0f1;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 10px 14px;
+	margin: 12px 0;
+	font-size: 13px;
+}
+.wsp-twitter-count strong {
+	font-size: 20px;
+}

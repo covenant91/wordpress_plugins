@@ -1,0 +1,13 @@
+.git
+.gitignore
+.distignore
+node_modules
+tests/
+phpunit.xml
+assets/src/
+DECISIONS.md
+DEPLOYMENT_CHECKLIST.md
+*.log
+.DS_Store
+Thumbs.db
+*.zip
