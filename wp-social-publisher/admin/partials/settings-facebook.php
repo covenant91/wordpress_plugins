@@ -43,13 +43,16 @@ if ( isset( $_GET['oauth_step'] ) && 'select_page' === $_GET['oauth_step'] ) { /
 			— <?php printf( esc_html__( 'token expires %s', 'wp-social-publisher' ), esc_html( $settings['facebook']['token_expiry'] ) ); ?>
 		</span>
 	<?php endif; ?>
-	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;margin-left:16px">
-		<?php wp_nonce_field( 'wsp_oauth_facebook_disconnect' ); ?>
-		<input type="hidden" name="action" value="wsp_oauth_facebook_disconnect" />
-		<button type="submit" class="button button-small wsp-disconnect-btn">
-			<?php esc_html_e( 'Disconnect', 'wp-social-publisher' ); ?>
-		</button>
-	</form>
+	<?php
+	$disconnect_url = wp_nonce_url(
+		admin_url( 'admin-post.php?action=wsp_oauth_facebook_disconnect' ),
+		'wsp_oauth_facebook_disconnect'
+	);
+	?>
+	<a href="<?php echo esc_url( $disconnect_url ); ?>" class="button button-small wsp-disconnect-btn" style="margin-left:16px"
+	   onclick="return confirm('<?php esc_attr_e( 'Disconnect Facebook?', 'wp-social-publisher' ); ?>')">
+		<?php esc_html_e( 'Disconnect', 'wp-social-publisher' ); ?>
+	</a>
 </div>
 
 <?php if ( $ig_connected ) : ?>
@@ -96,13 +99,15 @@ if ( isset( $_GET['oauth_step'] ) && 'select_page' === $_GET['oauth_step'] ) { /
 
 <div style="margin:16px 0">
 	<p><?php esc_html_e( 'After saving App ID and Secret above, click the button to authorize via Facebook login:', 'wp-social-publisher' ); ?></p>
-	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-		<?php wp_nonce_field( 'wsp_oauth_facebook_init' ); ?>
-		<input type="hidden" name="action" value="wsp_oauth_facebook_init" />
-		<button type="submit" class="button button-primary wsp-connect-btn wsp-connect-facebook">
-			&#x1F4F7; <?php esc_html_e( 'Connect with Facebook', 'wp-social-publisher' ); ?>
-		</button>
-	</form>
+	<?php
+	$connect_url = wp_nonce_url(
+		admin_url( 'admin-post.php?action=wsp_oauth_facebook_init' ),
+		'wsp_oauth_facebook_init'
+	);
+	?>
+	<a href="<?php echo esc_url( $connect_url ); ?>" class="button button-primary wsp-connect-btn wsp-connect-facebook">
+		&#x1F4F7; <?php esc_html_e( 'Connect with Facebook', 'wp-social-publisher' ); ?>
+	</a>
 	<p class="description" style="margin-top:8px">
 		<?php
 		printf(

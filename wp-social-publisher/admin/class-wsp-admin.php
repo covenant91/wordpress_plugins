@@ -42,12 +42,7 @@ class WSP_Admin {
 	public function oauth_facebook_select_page() { ( new WSP_OAuth_Facebook() )->handle_page_selection(); }
 
 	public function oauth_facebook_disconnect() {
-		check_admin_referer( 'wsp_oauth_facebook_disconnect' );
-		if ( current_user_can( 'manage_options' ) ) {
-			( new WSP_OAuth_Facebook() )->disconnect();
-		}
-		wp_redirect( admin_url( 'admin.php?page=wp-social-publisher&tab=facebook&oauth_disconnected=1' ) );
-		exit;
+		( new WSP_OAuth_Facebook() )->handle_disconnect();
 	}
 
 	// -------------------------------------------------------------------------
@@ -58,12 +53,7 @@ class WSP_Admin {
 	public function oauth_twitter_callback() { ( new WSP_OAuth_Twitter() )->handle_callback(); }
 
 	public function oauth_twitter_disconnect() {
-		check_admin_referer( 'wsp_oauth_twitter_disconnect' );
-		if ( current_user_can( 'manage_options' ) ) {
-			( new WSP_OAuth_Twitter() )->disconnect();
-		}
-		wp_redirect( admin_url( 'admin.php?page=wp-social-publisher&tab=twitter&oauth_disconnected=1' ) );
-		exit;
+		( new WSP_OAuth_Twitter() )->handle_disconnect();
 	}
 
 	public function add_menus() {

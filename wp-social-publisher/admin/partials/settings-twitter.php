@@ -39,13 +39,16 @@ if ( isset( $_GET['oauth_error'] ) ) { // phpcs:ignore WordPress.Security.NonceV
 	<span class="wsp-connected-dot" style="background:#000"></span>
 	<strong><?php esc_html_e( 'X connected as:', 'wp-social-publisher' ); ?></strong>
 	<?php echo esc_html( $connected_name ); ?>
-	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;margin-left:16px">
-		<?php wp_nonce_field( 'wsp_oauth_twitter_disconnect' ); ?>
-		<input type="hidden" name="action" value="wsp_oauth_twitter_disconnect" />
-		<button type="submit" class="button button-small wsp-disconnect-btn">
-			<?php esc_html_e( 'Disconnect', 'wp-social-publisher' ); ?>
-		</button>
-	</form>
+	<?php
+	$disconnect_url = wp_nonce_url(
+		admin_url( 'admin-post.php?action=wsp_oauth_twitter_disconnect' ),
+		'wsp_oauth_twitter_disconnect'
+	);
+	?>
+	<a href="<?php echo esc_url( $disconnect_url ); ?>" class="button button-small wsp-disconnect-btn" style="margin-left:16px"
+	   onclick="return confirm('<?php esc_attr_e( 'Disconnect X?', 'wp-social-publisher' ); ?>')">
+		<?php esc_html_e( 'Disconnect', 'wp-social-publisher' ); ?>
+	</a>
 </div>
 <hr style="margin:20px 0" />
 <p style="color:#50575e"><?php esc_html_e( 'To connect a different account, disconnect first then reconnect.', 'wp-social-publisher' ); ?></p>
@@ -74,13 +77,15 @@ if ( isset( $_GET['oauth_error'] ) ) { // phpcs:ignore WordPress.Security.NonceV
 
 <div style="margin:16px 0">
 	<p><?php esc_html_e( 'After saving Consumer Key and Secret above, click the button to authorize via X login:', 'wp-social-publisher' ); ?></p>
-	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-		<?php wp_nonce_field( 'wsp_oauth_twitter_init' ); ?>
-		<input type="hidden" name="action" value="wsp_oauth_twitter_init" />
-		<button type="submit" class="button button-primary wsp-connect-btn wsp-connect-twitter">
-			&#x1D54F; <?php esc_html_e( 'Connect with X', 'wp-social-publisher' ); ?>
-		</button>
-	</form>
+	<?php
+	$connect_url = wp_nonce_url(
+		admin_url( 'admin-post.php?action=wsp_oauth_twitter_init' ),
+		'wsp_oauth_twitter_init'
+	);
+	?>
+	<a href="<?php echo esc_url( $connect_url ); ?>" class="button button-primary wsp-connect-btn wsp-connect-twitter">
+		&#x1D54F; <?php esc_html_e( 'Connect with X', 'wp-social-publisher' ); ?>
+	</a>
 	<p class="description" style="margin-top:8px">
 		<?php
 		printf(

@@ -28,7 +28,7 @@ class WSP_OAuth_Facebook {
 	 * Hooked to admin_post_wsp_oauth_facebook_init.
 	 */
 	public function init_oauth() {
-		check_admin_referer( 'wsp_oauth_facebook_init' );
+		check_admin_referer( 'wsp_oauth_facebook_init', '_wpnonce' );
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'Insufficient permissions.', 'wp-social-publisher' ) );
 		}
@@ -235,6 +235,16 @@ class WSP_OAuth_Facebook {
 	/**
 	 * Disconnect Facebook (and Instagram since they share a token).
 	 */
+	public function handle_disconnect() {
+		check_admin_referer( 'wsp_oauth_facebook_disconnect', '_wpnonce' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Insufficient permissions.', 'wp-social-publisher' ) );
+		}
+		$this->disconnect();
+		wp_redirect( admin_url( 'admin.php?page=wp-social-publisher&tab=facebook&oauth_disconnected=1' ) );
+		exit;
+	}
+
 	public function disconnect() {
 		$settings = get_option( 'wsp_settings', array() );
 		$settings['facebook']['page_token']     = '';

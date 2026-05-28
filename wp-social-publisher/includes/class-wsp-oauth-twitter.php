@@ -26,7 +26,7 @@ class WSP_OAuth_Twitter {
 	 * Hooked to admin_post_wsp_oauth_twitter_init.
 	 */
 	public function init_oauth() {
-		check_admin_referer( 'wsp_oauth_twitter_init' );
+		check_admin_referer( 'wsp_oauth_twitter_init', '_wpnonce' );
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'Insufficient permissions.', 'wp-social-publisher' ) );
 		}
@@ -170,6 +170,16 @@ class WSP_OAuth_Twitter {
 	/**
 	 * Disconnect X.
 	 */
+	public function handle_disconnect() {
+		check_admin_referer( 'wsp_oauth_twitter_disconnect', '_wpnonce' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Insufficient permissions.', 'wp-social-publisher' ) );
+		}
+		$this->disconnect();
+		wp_redirect( admin_url( 'admin.php?page=wp-social-publisher&tab=twitter&oauth_disconnected=1' ) );
+		exit;
+	}
+
 	public function disconnect() {
 		$settings = get_option( 'wsp_settings', array() );
 		$settings['twitter']['access_token']        = '';
