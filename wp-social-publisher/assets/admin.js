@@ -28,8 +28,23 @@
 		}
 	});
 
+	// Track whether the settings form has unsaved changes.
+	var formDirty = false;
+	$(document).on('input change', '.wsp-field-track', function () {
+		formDirty = true;
+		$('.wsp-unsaved-warning').remove();
+	});
+	$('form').on('submit', function () { formDirty = false; });
+
 	// Test Connection buttons.
 	$(document).on('click', '.smp-test-connection', function (e) {
+		if (formDirty) {
+			var $btn = $(this);
+			if (!$btn.siblings('.wsp-unsaved-warning').length) {
+				$btn.after('<span class="wsp-unsaved-warning">&#9888; Save settings first</span>');
+			}
+			return;
+		}
 		e.preventDefault();
 		var $btn      = $(this);
 		var platform  = $btn.data('platform');

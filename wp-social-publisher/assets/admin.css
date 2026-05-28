@@ -129,6 +129,23 @@
 	padding: 8px;
 }
 
+/* "✓ Saved" badge next to password fields */
+.wsp-saved-badge {
+	display: inline-block;
+	margin-left: 8px;
+	color: #00a32a;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+/* Unsaved-changes warning on Test Connection */
+.wsp-unsaved-warning {
+	display: inline-block;
+	margin-left: 8px;
+	color: #996800;
+	font-size: 12px;
+}
+
 /* Twitter monthly count widget */
 .wsp-twitter-count {
 	background: #f0f0f1;

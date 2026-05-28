@@ -1,4 +1,13 @@
-<?php defined( 'ABSPATH' ) || die(); ?>
+<?php defined( 'ABSPATH' ) || die();
+$has_app_secret  = ! empty( $settings['facebook']['app_secret'] );
+$has_page_token  = ! empty( $settings['facebook']['page_token'] );
+?>
+<div class="notice notice-info inline" style="margin:0 0 16px;padding:8px 12px">
+	<p style="margin:0">
+		<strong><?php esc_html_e( 'Important:', 'wp-social-publisher' ); ?></strong>
+		<?php esc_html_e( 'Click "Save Settings" before using "Test Connection".', 'wp-social-publisher' ); ?>
+	</p>
+</div>
 <table class="form-table">
 	<tr>
 		<th><label for="wsp_fb_app_id"><?php esc_html_e( 'Facebook App ID', 'wp-social-publisher' ); ?></label></th>
@@ -10,15 +19,17 @@
 	<tr>
 		<th><label for="wsp_fb_app_secret"><?php esc_html_e( 'Facebook App Secret', 'wp-social-publisher' ); ?></label></th>
 		<td>
-			<input type="password" id="wsp_fb_app_secret" name="wsp_fb_app_secret" class="regular-text"
+			<input type="password" id="wsp_fb_app_secret" name="wsp_fb_app_secret" class="regular-text wsp-field-track"
 				placeholder="<?php esc_attr_e( 'Leave blank to keep existing', 'wp-social-publisher' ); ?>" />
+			<?php if ( $has_app_secret ) : ?><span class="wsp-saved-badge">&#10003; <?php esc_html_e( 'Saved', 'wp-social-publisher' ); ?></span><?php endif; ?>
 		</td>
 	</tr>
 	<tr>
 		<th><label for="wsp_fb_page_token"><?php esc_html_e( 'Page Access Token', 'wp-social-publisher' ); ?></label></th>
 		<td>
-			<input type="password" id="wsp_fb_page_token" name="wsp_fb_page_token" class="regular-text"
+			<input type="password" id="wsp_fb_page_token" name="wsp_fb_page_token" class="regular-text wsp-field-track"
 				placeholder="<?php esc_attr_e( 'Leave blank to keep existing', 'wp-social-publisher' ); ?>" />
+			<?php if ( $has_page_token ) : ?><span class="wsp-saved-badge">&#10003; <?php esc_html_e( 'Saved', 'wp-social-publisher' ); ?></span><?php endif; ?>
 		</td>
 	</tr>
 	<tr>

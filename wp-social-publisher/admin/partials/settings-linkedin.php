@@ -1,7 +1,15 @@
 <?php defined( 'ABSPATH' ) || die();
-$token_mgr      = new WSP_Token_Manager();
-$expiry_days    = $token_mgr->check_expiry( 'linkedin' );
+$token_mgr         = new WSP_Token_Manager();
+$expiry_days       = $token_mgr->check_expiry( 'linkedin' );
+$has_client_secret = ! empty( $settings['linkedin']['client_secret'] );
+$has_access_token  = ! empty( $settings['linkedin']['access_token'] );
 ?>
+<div class="notice notice-info inline" style="margin:0 0 16px;padding:8px 12px">
+	<p style="margin:0">
+		<strong><?php esc_html_e( 'Important:', 'wp-social-publisher' ); ?></strong>
+		<?php esc_html_e( 'Click "Save Settings" before using "Test Connection".', 'wp-social-publisher' ); ?>
+	</p>
+</div>
 <table class="form-table">
 	<tr>
 		<th><label for="wsp_li_client_id"><?php esc_html_e( 'Client ID', 'wp-social-publisher' ); ?></label></th>
@@ -13,15 +21,17 @@ $expiry_days    = $token_mgr->check_expiry( 'linkedin' );
 	<tr>
 		<th><label for="wsp_li_client_secret"><?php esc_html_e( 'Client Secret', 'wp-social-publisher' ); ?></label></th>
 		<td>
-			<input type="password" id="wsp_li_client_secret" name="wsp_li_client_secret" class="regular-text"
+			<input type="password" id="wsp_li_client_secret" name="wsp_li_client_secret" class="regular-text wsp-field-track"
 				placeholder="<?php esc_attr_e( 'Leave blank to keep existing', 'wp-social-publisher' ); ?>" />
+			<?php if ( $has_client_secret ) : ?><span class="wsp-saved-badge">&#10003; <?php esc_html_e( 'Saved', 'wp-social-publisher' ); ?></span><?php endif; ?>
 		</td>
 	</tr>
 	<tr>
 		<th><label for="wsp_li_access_token"><?php esc_html_e( 'Access Token', 'wp-social-publisher' ); ?></label></th>
 		<td>
-			<input type="password" id="wsp_li_access_token" name="wsp_li_access_token" class="regular-text"
+			<input type="password" id="wsp_li_access_token" name="wsp_li_access_token" class="regular-text wsp-field-track"
 				placeholder="<?php esc_attr_e( 'Leave blank to keep existing', 'wp-social-publisher' ); ?>" />
+			<?php if ( $has_access_token ) : ?><span class="wsp-saved-badge">&#10003; <?php esc_html_e( 'Saved', 'wp-social-publisher' ); ?></span><?php endif; ?>
 		</td>
 	</tr>
 	<tr>
