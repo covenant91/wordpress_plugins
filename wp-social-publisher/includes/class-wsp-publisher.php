@@ -115,6 +115,9 @@ class WSP_Publisher {
 			return;
 		}
 
+		// Flush the per-post meta cache so Gutenberg's REST-saved values are visible.
+		wp_cache_delete( $post->ID, 'post_meta' );
+
 		$channels = get_post_meta( $post->ID, '_wsp_channels', true );
 		error_log( '[WSP] channels meta: ' . print_r( $channels, true ) );
 		if ( empty( $channels ) || ! is_array( $channels ) ) {
