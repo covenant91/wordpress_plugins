@@ -10,17 +10,32 @@ class WSP_Publisher {
 	/** @var string[] */
 	private $platforms = array( 'facebook', 'instagram', 'linkedin', 'twitter' );
 
+	/**
+	 * Stores post IDs that are mid-transition to 'publish' via REST API.
+	 * Keyed by post ID, value is the previous status.
+	 * @var string[]
+	 */
+	private $pending_rest_publish = array();
+
 	public function __construct( WSP_Loader $loader ) {
 		$this->loader = $loader;
 		$this->register_hooks();
 	}
 
 	private function register_hooks() {
-		// wp_after_insert_post fires after ALL meta is saved (works for both
-		// classic editor and Gutenberg REST API, which saves meta after status).
-		$this->loader->add_action( 'wp_after_insert_post', $this, 'maybe_schedule_publish', 10, 4 );
+		// Step 1 (both editors): record when a post transitions TO publish.
+		$this->loader->add_action( 'transition_post_status', $this, 'record_transition', 10, 3 );
 
-		// Register per-platform cron handlers. Post ID is passed as a cron argument.
+		// Step 2a — Classic Editor: wp_after_insert_post fires after save_post
+		// which writes meta synchronously before this hook.
+		$this->loader->add_action( 'wp_after_insert_post', $this, 'dispatch_classic', 10, 4 );
+
+		// Step 2b — Gutenberg REST API: rest_after_insert_{type} fires after
+		// WP_REST_Posts_Controller::update_additional_fields_for_object() which
+		// is where register_post_meta REST fields are written.
+		$this->loader->add_action( 'rest_after_insert_post', $this, 'dispatch_rest', 10, 1 );
+
+		// Register per-platform cron handlers.
 		foreach ( $this->platforms as $platform ) {
 			$this->loader->add_action( "wsp_publish_{$platform}", $this, "publish_to_{$platform}", 10, 1 );
 		}
@@ -30,38 +45,80 @@ class WSP_Publisher {
 	}
 
 	/**
-	 * Fires after a post and all its meta are fully saved.
-	 * Handles both Classic Editor and Gutenberg (REST API saves meta after status change).
+	 * Record when any post transitions TO 'publish' (fires before meta is saved in REST).
+	 *
+	 * @param string  $new_status
+	 * @param string  $old_status
+	 * @param WP_Post $post
+	 */
+	public function record_transition( $new_status, $old_status, $post ) {
+		if ( 'publish' === $new_status && 'publish' !== $old_status ) {
+			$this->pending_rest_publish[ $post->ID ] = $old_status;
+			error_log( "[WSP] record_transition post_id={$post->ID} {$old_status}→{$new_status} is_rest=" . ( defined( 'REST_REQUEST' ) && REST_REQUEST ? 'yes' : 'no' ) );
+		}
+	}
+
+	/**
+	 * Classic Editor dispatch — fires after wp_insert_post (meta already written).
+	 * Skip REST requests; those are handled by dispatch_rest().
 	 *
 	 * @param int          $post_id
 	 * @param WP_Post      $post
 	 * @param bool         $update
-	 * @param WP_Post|null $post_before  Post state before this save.
+	 * @param WP_Post|null $post_before
 	 */
-	public function maybe_schedule_publish( $post_id, $post, $update, $post_before ) {
-		// Only act when the new status is 'publish'.
-		if ( 'publish' !== $post->post_status ) {
+	public function dispatch_classic( $post_id, $post, $update, $post_before ) {
+		if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
+			return; // Gutenberg handled separately.
+		}
+		if ( ! isset( $this->pending_rest_publish[ $post_id ] ) ) {
 			return;
 		}
-		// Skip if the post was already published before this save.
-		if ( $post_before && 'publish' === $post_before->post_status ) {
+		unset( $this->pending_rest_publish[ $post_id ] );
+		error_log( "[WSP] dispatch_classic post_id={$post_id}" );
+		$this->schedule_for_post( $post );
+	}
+
+	/**
+	 * Gutenberg REST dispatch — fires after all REST meta fields are written.
+	 *
+	 * @param WP_Post $post
+	 */
+	public function dispatch_rest( $post ) {
+		if ( ! isset( $this->pending_rest_publish[ $post->ID ] ) ) {
 			return;
 		}
+		unset( $this->pending_rest_publish[ $post->ID ] );
+		error_log( "[WSP] dispatch_rest post_id={$post->ID}" );
+		$this->schedule_for_post( $post );
+	}
+
+	/**
+	 * Core scheduling logic — called by dispatch_classic() and dispatch_rest()
+	 * once meta is confirmed to be written.
+	 *
+	 * @param WP_Post $post
+	 */
+	private function schedule_for_post( $post ) {
 		if ( wp_is_post_autosave( $post ) || wp_is_post_revision( $post ) ) {
+			error_log( '[WSP] SKIP: autosave or revision' );
 			return;
 		}
 
-		$settings     = get_option( 'wsp_settings', array() );
-		$post_types   = isset( $settings['defaults']['enabled_post_types'] )
+		$settings   = get_option( 'wsp_settings', array() );
+		$post_types = isset( $settings['defaults']['enabled_post_types'] )
 			? (array) $settings['defaults']['enabled_post_types']
 			: array( 'post' );
 
 		if ( ! in_array( $post->post_type, $post_types, true ) ) {
+			error_log( "[WSP] SKIP: post type '{$post->post_type}' not in enabled types: " . implode( ',', $post_types ) );
 			return;
 		}
 
 		$channels = get_post_meta( $post->ID, '_wsp_channels', true );
+		error_log( '[WSP] channels meta: ' . print_r( $channels, true ) );
 		if ( empty( $channels ) || ! is_array( $channels ) ) {
+			error_log( '[WSP] SKIP: no channels selected' );
 			return;
 		}
 
