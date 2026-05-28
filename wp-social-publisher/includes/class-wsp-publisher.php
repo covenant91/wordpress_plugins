@@ -1,6 +1,11 @@
 <?php
 /**
  * Core dispatch orchestrator. Hooks into post publish and schedules async cron events.
+ *
+ * Architecture note: Gutenberg saves post meta AFTER rest_after_insert_post fires
+ * (the meta is written by WP_REST_Posts_Controller after the action). To avoid race
+ * conditions, we schedule a single wsp_process_post cron event at publish time.
+ * By the time the cron fires (5+ seconds later), all meta is guaranteed to be in the DB.
  */
 class WSP_Publisher {
 
@@ -10,32 +15,19 @@ class WSP_Publisher {
 	/** @var string[] */
 	private $platforms = array( 'facebook', 'instagram', 'linkedin', 'twitter' );
 
-	/**
-	 * Stores post IDs that are mid-transition to 'publish' via REST API.
-	 * Keyed by post ID, value is the previous status.
-	 * @var string[]
-	 */
-	private $pending_rest_publish = array();
-
 	public function __construct( WSP_Loader $loader ) {
 		$this->loader = $loader;
 		$this->register_hooks();
 	}
 
 	private function register_hooks() {
-		// Step 1 (both editors): record when a post transitions TO publish.
-		$this->loader->add_action( 'transition_post_status', $this, 'record_transition', 10, 3 );
+		// Detect fresh publish for both Classic Editor and Gutenberg.
+		$this->loader->add_action( 'transition_post_status', $this, 'on_transition', 10, 3 );
 
-		// Step 2a — Classic Editor: wp_after_insert_post fires after save_post
-		// which writes meta synchronously before this hook.
-		$this->loader->add_action( 'wp_after_insert_post', $this, 'dispatch_classic', 10, 4 );
+		// Deferred processing cron — reads meta after it is fully written.
+		$this->loader->add_action( 'wsp_process_post', $this, 'process_post', 10, 1 );
 
-		// Step 2b — Gutenberg REST API: rest_after_insert_{type} fires after
-		// WP_REST_Posts_Controller::update_additional_fields_for_object() which
-		// is where register_post_meta REST fields are written.
-		$this->loader->add_action( 'rest_after_insert_post', $this, 'dispatch_rest', 10, 1 );
-
-		// Register per-platform cron handlers.
+		// Per-platform cron callbacks.
 		foreach ( $this->platforms as $platform ) {
 			$this->loader->add_action( "wsp_publish_{$platform}", $this, "publish_to_{$platform}", 10, 1 );
 		}
@@ -45,63 +37,18 @@ class WSP_Publisher {
 	}
 
 	/**
-	 * Record when any post transitions TO 'publish' (fires before meta is saved in REST).
+	 * Fires on every post status transition. Schedules wsp_process_post
+	 * when a post transitions TO publish for the first time.
 	 *
 	 * @param string  $new_status
 	 * @param string  $old_status
 	 * @param WP_Post $post
 	 */
-	public function record_transition( $new_status, $old_status, $post ) {
-		if ( 'publish' === $new_status && 'publish' !== $old_status ) {
-			$this->pending_rest_publish[ $post->ID ] = $old_status;
-			error_log( "[WSP] record_transition post_id={$post->ID} {$old_status}→{$new_status} is_rest=" . ( defined( 'REST_REQUEST' ) && REST_REQUEST ? 'yes' : 'no' ) );
-		}
-	}
-
-	/**
-	 * Classic Editor dispatch — fires after wp_insert_post (meta already written).
-	 * Skip REST requests; those are handled by dispatch_rest().
-	 *
-	 * @param int          $post_id
-	 * @param WP_Post      $post
-	 * @param bool         $update
-	 * @param WP_Post|null $post_before
-	 */
-	public function dispatch_classic( $post_id, $post, $update, $post_before ) {
-		if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
-			return; // Gutenberg handled separately.
-		}
-		if ( ! isset( $this->pending_rest_publish[ $post_id ] ) ) {
+	public function on_transition( $new_status, $old_status, $post ) {
+		if ( 'publish' !== $new_status || 'publish' === $old_status ) {
 			return;
 		}
-		unset( $this->pending_rest_publish[ $post_id ] );
-		error_log( "[WSP] dispatch_classic post_id={$post_id}" );
-		$this->schedule_for_post( $post );
-	}
-
-	/**
-	 * Gutenberg REST dispatch — fires after all REST meta fields are written.
-	 *
-	 * @param WP_Post $post
-	 */
-	public function dispatch_rest( $post ) {
-		if ( ! isset( $this->pending_rest_publish[ $post->ID ] ) ) {
-			return;
-		}
-		unset( $this->pending_rest_publish[ $post->ID ] );
-		error_log( "[WSP] dispatch_rest post_id={$post->ID}" );
-		$this->schedule_for_post( $post );
-	}
-
-	/**
-	 * Core scheduling logic — called by dispatch_classic() and dispatch_rest()
-	 * once meta is confirmed to be written.
-	 *
-	 * @param WP_Post $post
-	 */
-	private function schedule_for_post( $post ) {
 		if ( wp_is_post_autosave( $post ) || wp_is_post_revision( $post ) ) {
-			error_log( '[WSP] SKIP: autosave or revision' );
 			return;
 		}
 
@@ -111,25 +58,37 @@ class WSP_Publisher {
 			: array( 'post' );
 
 		if ( ! in_array( $post->post_type, $post_types, true ) ) {
-			error_log( "[WSP] SKIP: post type '{$post->post_type}' not in enabled types: " . implode( ',', $post_types ) );
 			return;
 		}
 
-		// Bypass the object cache entirely — Gutenberg REST saves meta in the same
-		// request so the cache may still hold the pre-save (empty) value.
-		global $wpdb;
-		$raw_channels = $wpdb->get_var( $wpdb->prepare(
-			"SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = '_wsp_channels' LIMIT 1",
-			$post->ID
-		) );
-		$channels = $raw_channels ? maybe_unserialize( $raw_channels ) : array();
-		error_log( '[WSP] channels (direct DB): ' . print_r( $channels, true ) );
+		// Schedule a deferred job. Meta will be fully written by the time this fires.
+		wp_schedule_single_event( time() + 10, 'wsp_process_post', array( $post->ID ) );
+		error_log( "[WSP] Scheduled wsp_process_post for post_id={$post->ID}" );
+	}
+
+	/**
+	 * Cron callback — runs 10+ seconds after publish, after all meta is written.
+	 * Reads _wsp_channels, logs, and schedules per-platform publish events.
+	 *
+	 * @param int $post_id
+	 */
+	public function process_post( $post_id ) {
+		$post = get_post( $post_id );
+		if ( ! $post || 'publish' !== $post->post_status ) {
+			error_log( "[WSP] process_post: post {$post_id} not found or not published" );
+			return;
+		}
+
+		// Read channels directly from DB (cron is a fresh request, no cache issue).
+		$channels = get_post_meta( $post_id, '_wsp_channels', true );
+		error_log( '[WSP] process_post channels: ' . print_r( $channels, true ) );
+
 		if ( empty( $channels ) || ! is_array( $channels ) ) {
-			error_log( '[WSP] SKIP: no channels selected' );
+			error_log( "[WSP] process_post: no channels for post {$post_id}" );
 			return;
 		}
 
-		$captions = get_post_meta( $post->ID, '_wsp_captions', true );
+		$captions = get_post_meta( $post_id, '_wsp_captions', true );
 		if ( ! is_array( $captions ) ) {
 			$captions = array();
 		}
@@ -139,24 +98,23 @@ class WSP_Publisher {
 			if ( ! in_array( $platform, $this->platforms, true ) ) {
 				continue;
 			}
-			// Idempotency: skip if already sent.
-			if ( WSP_Post_Log::already_sent( $post->ID, $platform ) ) {
+			if ( WSP_Post_Log::already_sent( $post_id, $platform ) ) {
+				error_log( "[WSP] process_post: already sent to {$platform} for post {$post_id}" );
 				continue;
 			}
 
-			$caption = isset( $captions[ $platform ] ) ? $captions[ $platform ] : '';
-			if ( empty( $caption ) ) {
-				$caption = $this->build_default_caption( $post, $platform );
-			}
+			$caption = isset( $captions[ $platform ] ) && $captions[ $platform ]
+				? $captions[ $platform ]
+				: $this->build_default_caption( $post, $platform );
 
-			WSP_Post_Log::insert( $post->ID, $platform, $caption );
+			WSP_Post_Log::insert( $post_id, $platform, $caption );
 
-			// 5-second delay prevents the publish action from timing out.
 			wp_schedule_single_event(
 				time() + 5,
 				"wsp_publish_{$platform}",
-				array( $post->ID )
+				array( $post_id )
 			);
+			error_log( "[WSP] process_post: scheduled wsp_publish_{$platform} for post {$post_id}" );
 		}
 	}
 
@@ -168,9 +126,9 @@ class WSP_Publisher {
 	 * @return string
 	 */
 	private function build_default_caption( $post, $platform ) {
-		$settings  = get_option( 'wsp_settings', array() );
-		$caption   = $post->post_title;
-		$excerpt   = has_excerpt( $post->ID )
+		$settings = get_option( 'wsp_settings', array() );
+		$caption  = $post->post_title;
+		$excerpt  = has_excerpt( $post->ID )
 			? wp_strip_all_tags( $post->post_excerpt )
 			: wp_trim_words( wp_strip_all_tags( $post->post_content ), 30 );
 
@@ -185,10 +143,7 @@ class WSP_Publisher {
 			$caption .= "\n\n" . WSP_Helpers::normalise_hashtags( $hashtags );
 		}
 
-		$auto_url = isset( $settings['defaults']['auto_append_url'] )
-			? (bool) $settings['defaults']['auto_append_url']
-			: true;
-		if ( $auto_url ) {
+		if ( ! empty( $settings['defaults']['auto_append_url'] ) ) {
 			$caption .= "\n\n" . get_permalink( $post->ID );
 		}
 
@@ -220,17 +175,16 @@ class WSP_Publisher {
 	}
 
 	/**
-	 * Call the API class and update the log.
-	 *
 	 * @param int    $post_id
 	 * @param string $platform
-	 * @param object $api      Must implement publish( $post_id, $caption ): array
+	 * @param object $api
 	 */
 	private function dispatch( $post_id, $platform, $api ) {
-		$log = WSP_Post_Log::get_log_pending( $post_id, $platform );
+		$log     = WSP_Post_Log::get_log_pending( $post_id, $platform );
 		$caption = $log ? $log->caption : $this->build_default_caption( get_post( $post_id ), $platform );
 		$result  = $api->publish( $post_id, $caption );
 		WSP_Post_Log::update_result( $post_id, $platform, $result );
+		error_log( "[WSP] dispatch {$platform} post {$post_id}: " . ( $result['success'] ? 'sent id=' . $result['social_id'] : 'FAILED ' . $result['error'] ) );
 	}
 
 	/**
