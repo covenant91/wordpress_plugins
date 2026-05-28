@@ -115,11 +115,15 @@ class WSP_Publisher {
 			return;
 		}
 
-		// Flush the per-post meta cache so Gutenberg's REST-saved values are visible.
-		wp_cache_delete( $post->ID, 'post_meta' );
-
-		$channels = get_post_meta( $post->ID, '_wsp_channels', true );
-		error_log( '[WSP] channels meta: ' . print_r( $channels, true ) );
+		// Bypass the object cache entirely — Gutenberg REST saves meta in the same
+		// request so the cache may still hold the pre-save (empty) value.
+		global $wpdb;
+		$raw_channels = $wpdb->get_var( $wpdb->prepare(
+			"SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = '_wsp_channels' LIMIT 1",
+			$post->ID
+		) );
+		$channels = $raw_channels ? maybe_unserialize( $raw_channels ) : array();
+		error_log( '[WSP] channels (direct DB): ' . print_r( $channels, true ) );
 		if ( empty( $channels ) || ! is_array( $channels ) ) {
 			error_log( '[WSP] SKIP: no channels selected' );
 			return;
